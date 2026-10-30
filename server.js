@@ -13,6 +13,8 @@ import { handleMcp } from './src/mcp.js';
 const PORT = Number(process.env.PORT || 8787);
 const API_KEY = process.env.API_KEY || ''; // when set, every /api call needs header x-api-key (or ?key=)
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
+// Exposed on /api/health so we can tell from outside whether Talkdesk is actually reaching us.
+const mcpStats = { requests: 0, last_method: '', last_at: '', last_user_agent: '' };
 
 const routes = {
   'POST /api/patients/lookup': clinic.lookupPatient,
@@ -29,7 +31,7 @@ const routes = {
   'POST /api/cases/update': clinic.updateCase,
   'GET /api/state': () => clinic.snapshot(),
   'POST /api/admin/reset': () => (clinic.reset(), { reset: true, message: 'Demo data reset.' }),
-  'GET /api/health': () => ({ ok: true, clinic: clinic.CLINIC_NAME, today: clinic.todayIST() }),
+  'GET /api/health': () => ({ ok: true, clinic: clinic.CLINIC_NAME, today: clinic.todayIST(), mcp: mcpStats }),
 };
 
 function send(res, status, body, type = 'application/json') {
@@ -69,6 +71,7 @@ const server = http.createServer(async (req, res) => {
   const authorized = !API_KEY || req.headers['x-api-key'] === API_KEY || req.headers.authorization === `Bearer ${API_KEY}` || url.searchParams.get('key') === API_KEY;
 
   if (url.pathname.replace(/\/+$/, '') === '/mcp') {
+    Object.assign(mcpStats, { requests: mcpStats.requests + 1, last_method: req.method, last_at: new Date().toISOString(), last_user_agent: req.headers['user-agent'] || '' });
     if (req.method !== 'POST') return send(res, 405, { error: 'method_not_allowed', message: 'Stateless MCP server: POST JSON-RPC messages, no SSE stream.' });
     if (!authorized) return send(res, 401, { jsonrpc: '2.0', id: null, error: { code: -32001, message: 'Unauthorized' } });
     const payload = await readBody(req);
