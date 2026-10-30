@@ -1,0 +1,12 @@
+# Render Blueprint: one always-on Node process, so Talkdesk's MCP calls and the
+# dashboard share the same in-memory clinic state (serverless would split it).
+services:
+  - type: web
+    name: vortexknights-careline
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    autoDeploy: true

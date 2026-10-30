@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CareLine Live</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --panel: #ffffff; --ink: #14171f; --muted: #626a7a; --line: #e3e6ec;
+    --accent: #5b3df5; --ok: #0f8a5f; --warn: #b26a00; --bad: #c62828; --bad-bg: #fdecec;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f1117; --panel: #171a23; --ink: #eef0f5; --muted: #9aa2b4; --line: #272b38;
+      --accent: #8b74ff; --ok: #3ccf91; --warn: #f0a742; --bad: #ff6b6b; --bad-bg: #3a1a1d; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 24px; border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
+  h1 { margin: 0; font-size: 20px; letter-spacing: -0.01em; }
+  h1 span { color: var(--accent); }
+  .sub { color: var(--muted); font-size: 13px; }
+  .live { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ok); font-weight: 600; }
+  .live i { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); animation: pulse 1.6s infinite; }
+  @keyframes pulse { 50% { opacity: .3; } }
+  main { padding: 20px 24px 40px; display: grid; gap: 18px; max-width: 1400px; margin: 0 auto; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+  .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .kpi b { display: block; font-size: 30px; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+  .kpi small { color: var(--muted); }
+  .grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } main, header { padding-left: 16px; padding-right: 16px; } }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; min-width: 0; }
+  section h2 { margin: 0; padding: 12px 16px; font-size: 14px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); border-bottom: 1px solid var(--line); }
+  .list { max-height: 420px; overflow: auto; }
+  .row { padding: 10px 16px; border-bottom: 1px solid var(--line); display: grid; gap: 2px; }
+  .row:last-child { border-bottom: 0; }
+  .row .top { display: flex; justify-content: space-between; gap: 10px; }
+  .row .meta { color: var(--muted); font-size: 13px; }
+  .tag { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; padding: 2px 8px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
+  .t-emergency { color: var(--bad); } .t-urgent { color: var(--warn); } .t-routine, .t-booked { color: var(--ok); }
+  .t-cancelled, .t-rescheduled { color: var(--muted); }
+  .case-emergency { background: var(--bad-bg); }
+  .new { animation: flash 2s ease-out; }
+  @keyframes flash { from { background: color-mix(in srgb, var(--accent) 22%, transparent); } }
+  .empty { padding: 18px 16px; color: var(--muted); }
+  button { font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  .time { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 12px; white-space: nowrap; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>CareLine <span>Live</span></h1>
+    <div class="sub" id="clinic">Vortex Multispeciality Clinic · AI front desk on Talkdesk · Team VortexKnights</div>
+  </div>
+  <div style="display:flex;gap:12px;align-items:center">
+    <span class="live"><i></i>LIVE</span>
+    <button id="reset" type="button">Reset demo data</button>
+  </div>
+</header>
+<main>
+  <div class="kpis">
+    <div class="kpi"><b id="k-calls">0</b><small>Callers identified by AI</small></div>
+    <div class="kpi"><b id="k-booked">0</b><small>Appointments booked / moved by AI</small></div>
+    <div class="kpi"><b id="k-emerg">0</b><small>Emergencies escalated</small></div>
+    <div class="kpi"><b id="k-handoff">0</b><small>Handoffs with full context</small></div>
+    <div class="kpi"><b id="k-saved">0</b><small>Front-desk minutes saved (est.)</small></div>
+  </div>
+  <div class="grid">
+    <section>
+      <h2>Handoff queue (what the human agent sees)</h2>
+      <div class="list" id="cases"></div>
+    </section>
+    <section>
+      <h2>Live activity</h2>
+      <div class="list" id="events"></div>
+    </section>
+  </div>
+  <section>
+    <h2>Appointments</h2>
+    <div class="list" id="appts"></div>
+  </section>
+</main>
+<script>
+  const key = new URLSearchParams(location.search).get('key') || '';
+  const seen = new Set();
+  let first = true;
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const clock = (iso) => new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const fresh = (id) => { const isNew = !first && !seen.has(id); seen.add(id); return isNew ? ' new' : ''; };
+
+  async function refresh() {
+    try {
+      const s = await (await fetch('/api/state', { cache: 'no-store' })).json();
+      const ev = s.events;
+      const count = (t) => ev.filter((e) => e.type === t).length;
+      const aiAppts = s.appointments.filter((a) => a.source === 'ai-agent');
+      document.getElementById('k-calls').textContent = count('lookup') + count('register');
+      document.getElementById('k-booked').textContent = aiAppts.length;
+      document.getElementById('k-emerg').textContent = s.cases.filter((c) => c.urgency === 'emergency').length;
+      document.getElementById('k-handoff').textContent = s.cases.length;
+      document.getElementById('k-saved').textContent = aiAppts.length * 4 + count('lab') * 3 + count('cancelled') * 2 + s.cases.length * 1;
+
+      document.getElementById('cases').innerHTML = s.cases.length ? s.cases.map((c) => `
+        <div class="row case-${esc(c.urgency)}${fresh(c.id)}">
+          <div class="top"><strong>${esc(c.id)} · ${esc(c.patient)}</strong><span class="tag t-${esc(c.urgency)}">${esc(c.urgency)}</span></div>
+          <div>${esc(c.reason)}</div>
+          ${c.summary ? `<div class="meta">AI summary: ${esc(c.summary)}</div>` : ''}
+          <div class="meta">${c.phone ? 'Phone ' + esc(c.phone) + ' · ' : ''}${esc(c.status)} · <span class="time">${clock(c.created_at)}</span></div>
+        </div>`).join('') : '<div class="empty">No handoffs yet. The AI is handling every call.</div>';
+
+      document.getElementById('events').innerHTML = ev.map((e) => `
+        <div class="row${fresh(e.at + e.text)}">
+          <div class="top"><span>${esc(e.text)}</span><span class="time">${clock(e.at)}</span></div>
+        </div>`).join('');
+
+      document.getElementById('appts').innerHTML = s.appointments.length ? s.appointments.map((a) => `
+        <div class="row${fresh(a.id + a.status)}">
+          <div class="top"><strong>${esc(a.id)} · ${esc(a.patient)}</strong><span class="tag t-${esc(a.status)}">${esc(a.status)}</span></div>
+          <div class="meta">${esc(a.when)} · ${esc(a.doctor)}${a.reason ? ' · ' + esc(a.reason) : ''} · ${a.source === 'ai-agent' ? 'booked by AI agent' : 'existing'}</div>
+        </div>`).join('') : '<div class="empty">No appointments.</div>';
+      first = false;
+    } catch (e) { /* server restarting; try again next tick */ }
+  }
+
+  document.getElementById('reset').addEventListener('click', async () => {
+    if (!confirm('Reset all demo data?')) return;
+    seen.clear(); first = true;
+    await fetch('/api/admin/reset', { method: 'POST', headers: key ? { 'x-api-key': key } : {} });
+    refresh();
+  });
+  refresh();
+  setInterval(refresh, 2000);
+</script>
+</body>
+</html>
