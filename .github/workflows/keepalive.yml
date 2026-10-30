@@ -1,0 +1,16 @@
+# Render's free tier sleeps after 15 idle minutes and takes ~50 s to wake, longer than
+# Talkdesk waits for a tool call. Ping it so Asha never hits a cold server.
+# Set the repo variable CARELINE_URL to the Render URL (e.g. https://vortexknights-careline.onrender.com).
+name: keep-alive
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    if: ${{ vars.CARELINE_URL != '' }}
+    steps:
+      - run: curl -fsS --retry 3 --retry-delay 20 --max-time 90 "${{ vars.CARELINE_URL }}/api/health"
