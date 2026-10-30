@@ -61,7 +61,7 @@ After changing tool names or schemas, refresh Talkdesk's cached tool list: open 
 
 **Hosting:** Render free tier at **https://vortexknights-careline.onrender.com**. The dashboard is at `/` and MCP at `/mcp`. It auto-deploys on every push to `main` in the private repo `dchaudhari7177/vortexknights-careline`. Free instances sleep after 15 idle minutes and take about 50 s to wake, longer than Talkdesk waits for a tool call. **Open the dashboard a minute before any demo**: it polls every 2 s, which keeps the server awake. A restart or redeploy resets the demo data.
 
-When the MCP server URL changes in Talkdesk, its chat runtime can keep using the old address for a while ("Failed to initialize MCP client"). Test connection passes but tool calls never arrive. Re-saving the skills and the orchestration doesn't fix it right away.
+**Never just edit an MCP server's URL in Talkdesk.** The chat runtime keeps calling the old address ("Failed to initialize MCP client"). Test connection still passes, but tool calls never arrive, and re-saving doesn't help. The fix that worked: create a **new** MCP server entry, then switch each skill's server dropdown to it. Tool names match, so every variable link carries over. The live entry is `CareLine MCP Render_VortexKnights`. The old `CareLine MCP_VortexKnights` (tunnel) is unused. `GET /api/health` shows an `mcp.requests` counter, so you can confirm Talkdesk is really reaching the server.
 
 ## Endpoints (all `POST`, JSON or form body)
 
