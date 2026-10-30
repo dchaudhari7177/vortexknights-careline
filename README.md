@@ -59,7 +59,9 @@ After changing tool names or schemas, refresh Talkdesk's cached tool list: open 
 - Monday-morning cardiology search, then booking APT-1004. It appeared on the dashboard.
 - "My father has chest pain": 108 advice, then **Escalated**, then a red EMERGENCY card with the AI summary.
 
-**The tunnel URL changes every time cloudflared restarts.** When it does, edit the MCP server's URL in Talkdesk.
+**Hosting:** Render free tier at **https://vortexknights-careline.onrender.com**. The dashboard is at `/` and MCP at `/mcp`. It auto-deploys on every push to `main` in the private repo `dchaudhari7177/vortexknights-careline`. Free instances sleep after 15 idle minutes and take about 50 s to wake, longer than Talkdesk waits for a tool call. **Open the dashboard a minute before any demo**: it polls every 2 s, which keeps the server awake. A restart or redeploy resets the demo data.
+
+When the MCP server URL changes in Talkdesk, its chat runtime can keep using the old address for a while ("Failed to initialize MCP client"). Test connection passes but tool calls never arrive. Re-saving the skills and the orchestration doesn't fix it right away.
 
 ## Endpoints (all `POST`, JSON or form body)
 
